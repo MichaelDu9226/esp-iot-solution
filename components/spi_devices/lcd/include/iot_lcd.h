@@ -24,8 +24,13 @@
 #include "esp_partition.h"
 #include "freertos/semphr.h"
 
-#define LCD_TFTWIDTH  240
-#define LCD_TFTHEIGHT 320
+//#define LCD_TFTWIDTH  130
+//#define LCD_TFTHEIGHT 161
+
+#define LCD_TFTWIDTH  320
+#define LCD_TFTHEIGHT 480
+//#define LCD_TFTWIDTH  320
+//#define LCD_TFTHEIGHT 480
 
 #define LCD_INVOFF    0x20
 #define LCD_INVON     0x21
@@ -164,7 +169,9 @@ public:
      * @param color New color of the pixel
      */
     void drawPixel(int16_t x, int16_t y, uint16_t color);
-    
+
+	void drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) ;
+	
     /**
      * @brief Print an array of pixels: Used to display pictures usually
      * @param x position X
@@ -228,11 +235,14 @@ public:
      */
     void setRotation(uint8_t r);
 
+    void setBMPRotation();
+	void setStringRotation();
+
     /*Yet to figure out what this does*/
     void invertDisplay(bool i);
 
     /*Not useful for user, sets the Region of Interest window*/
-    inline void setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
+    void setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
     /**
      * @brief Scroll on Y-axis

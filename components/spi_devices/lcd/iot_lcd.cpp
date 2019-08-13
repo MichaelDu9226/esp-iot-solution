@@ -57,8 +57,14 @@ POSSIBILITY OF SUCH DAMAGE.
 #define MADCTL_BGR 0x08
 #define MADCTL_MH  0x04
 
+#ifndef pgm_read_byte
+ #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
+#endif
 
 #define SWAPBYTES(i) ((i>>8) | (i<<8))
+//((i>>11) | (i<<11)| (i & 0x03e0))
+//(i)
+//((i>>8) | (i<<8))
 static const char* TAG = "LCD";
 
 CEspLcd::CEspLcd(lcd_conf_t* lcd_conf, int height, int width, bool dma_en, int dma_word_size, int dma_chan) : Adafruit_GFX(width, height)
@@ -223,13 +229,32 @@ void CEspLcd::_fastSendRep(uint16_t val, int rep_num)
     data_buf = NULL;
 }
 
+void CEspLcd::drawBitmap(int16_t x, int16_t y,
+  const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) {
+
+    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+    uint8_t byte = 0;
+
+    //startWrite();
+    for(int16_t j=0; j<h; j++, y++) {
+        for(int16_t i=0; i<w; i++) {
+            if(i & 7) byte <<= 1;
+            else      byte   = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
+            if(byte & 0x80) drawPixel(x+i, y, color);
+        }
+    }
+    //endWrite();
+}
+
 void CEspLcd::drawBitmap(int16_t x, int16_t y, const uint16_t *bitmap, int16_t w, int16_t h)
 {
     xSemaphoreTakeRecursive(spi_mux, portMAX_DELAY);
     setAddrWindow(x, y, x + w - 1, y + h - 1);
     if (dma_mode) {
+		ESP_LOGI(TAG, "DMA");
         _fastSendBuf(bitmap, w * h);
     } else {
+		ESP_LOGI(TAG, "NO DMA");
         for (int i = 0; i < w * h; i++) {
             transmitData(SWAPBYTES(bitmap[i]), 1);
         }
@@ -369,22 +394,41 @@ void CEspLcd::setRotation(uint8_t m)
         _height = m_height;
         break;
     case 1:
-        data = MADCTL_MV | MADCTL_BGR;
+        data = MADCTL_MV | MADCTL_RGB;
         _width = m_height;
         _height = m_width;
         break;
     case 2:
-        data = MADCTL_MY | MADCTL_BGR;
+        //data = MADCTL_MY | MADCTL_BGR;
+		data = MADCTL_MY | MADCTL_RGB;
         _width = m_width;
         _height = m_height;
         break;
     case 3:
-        data = MADCTL_MX | MADCTL_MY | MADCTL_MV | MADCTL_BGR;
+        data = MADCTL_MX | MADCTL_MY | MADCTL_MV | MADCTL_RGB;
         _width = m_height;
         _height = m_width;
         break;
     }
     transmitCmdData(LCD_MADCTL, data, 1);
+}
+
+void CEspLcd::setBMPRotation()
+{
+	uint8_t data = 0;
+	data = MADCTL_MX | MADCTL_RGB;
+	_width = m_width;
+	_height = m_height;
+	transmitCmdData(LCD_MADCTL, data, 1);
+}
+
+void CEspLcd::setStringRotation()
+{
+	uint8_t data = 0;
+	data = MADCTL_MX | MADCTL_MY | MADCTL_RGB;
+	_width = m_width;
+	_height = m_height;
+	transmitCmdData(LCD_MADCTL, data, 1);
 }
 
 void CEspLcd::invertDisplay(bool i)
