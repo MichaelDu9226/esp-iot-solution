@@ -251,10 +251,10 @@ void CEspLcd::drawBitmap(int16_t x, int16_t y, const uint16_t *bitmap, int16_t w
     xSemaphoreTakeRecursive(spi_mux, portMAX_DELAY);
     setAddrWindow(x, y, x + w - 1, y + h - 1);
     if (dma_mode) {
-		ESP_LOGI(TAG, "DMA");
+		//ESP_LOGI(TAG, "DMA");
         _fastSendBuf(bitmap, w * h);
     } else {
-		ESP_LOGI(TAG, "NO DMA");
+		//ESP_LOGI(TAG, "NO DMA");
         for (int i = 0; i < w * h; i++) {
             transmitData(SWAPBYTES(bitmap[i]), 1);
         }
