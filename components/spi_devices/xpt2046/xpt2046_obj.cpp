@@ -13,6 +13,9 @@
 // limitations under the License.
 #include "iot_xpt2046.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
+
+#define TAG "CXpt2046_obj"
 
 CXpt2046::CXpt2046(xpt_conf_t * xpt_conf, int rotation)
 {
@@ -30,6 +33,7 @@ bool CXpt2046::is_pressed()
     sample();
     if(gpio_get_level((gpio_num_t) m_io_irq) == 0){
         m_pressed = true;
+        ESP_LOGI(TAG, "###");
     } else {
         m_pressed = false;
     }

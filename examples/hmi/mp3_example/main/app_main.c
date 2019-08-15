@@ -453,7 +453,7 @@ static void audio_sdcard_task(void *para)
     mem_assert(pipeline);
 
     ESP_LOGI(TAG, "[2.1] Create i2s stream to write data to ESP32 internal DAC");
-    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_INTERNAL_DAC_CFG_DEFAULT();
+    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
     i2s_cfg.type = AUDIO_STREAM_WRITER;
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
 
@@ -483,7 +483,7 @@ static void audio_sdcard_task(void *para)
     //audio_event_iface_set_listener(esp_periph_get_event_iface(), evt);
 
     ESP_LOGI(TAG, "[ 4 ] Listen for all pipeline events");
-    audio_pipeline_run(pipeline);
+    //audio_pipeline_run(pipeline);
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
@@ -568,7 +568,7 @@ void app_main()
     gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
     gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
     gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
-    gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
+    //gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
     xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 10, NULL, 0, NULL);
 //#endif
 
