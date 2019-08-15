@@ -82,6 +82,7 @@
 #include "fatfs_stream.h"
 #include "esp_peripherals.h"
 #include "periph_sdcard.h"
+#include "board.h"
 #endif
 
 /**********************
@@ -265,6 +266,7 @@ static lv_res_t play_list(lv_obj_t *obj)
 
 static void littlevgl_mp3(void)
 {
+    ESP_LOGI("LvGL", "littlevgl_mp3 app_main last: %d", esp_get_free_heap_size());
     lv_obj_t *scr = lv_obj_create(NULL, NULL);
     lv_scr_load(scr);
 
@@ -328,12 +330,12 @@ static void sdmmc_init()
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 
     // To use 1-line SD mode, uncomment the following line:
-    // host.flags = SDMMC_HOST_FLAG_1BIT;
+    host.flags = SDMMC_HOST_FLAG_1BIT;
 
     // This initializes the slot without card detect (CD) and write protect (WP) signals.
     // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot_config.gpio_cd = (gpio_num_t)34;
+    slot_config.gpio_cd = (gpio_num_t)39;
 
     // GPIOs 15, 2, 4, 12, 13 should have external 10k pull-ups.
     // Internal pull-ups are not sufficient. However, enabling internal pull-ups
@@ -341,8 +343,8 @@ static void sdmmc_init()
     gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
     gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
     gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
-    gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
-    gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
+    //gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
+    //gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
 
     // Options for mounting the filesystem.
     // If format_if_mount_failed is set to true, SD card will be partitioned and
@@ -401,7 +403,7 @@ static void read_content(const char *path, uint8_t *filecount)
     closedir(dir);
 }
 
-#if USE_ADF_TO_PLAY
+//#if USE_ADF_TO_PLAY
 /*
 * Callback function to feed audio data stream from sdcard to mp3 decoder element
 */
@@ -418,23 +420,33 @@ static void audio_sdcard_task(void *para)
 {
     ESP_LOGI(TAG, "[ 1 ] Mount sdcard");
     // Initialize peripherals management
-    esp_periph_config_t periph_cfg = {0};
-    esp_periph_init(&periph_cfg);
+    esp_periph_config_t periph_cfg = {\
+    .task_stack         = 4096,   \
+    .task_prio          = 1,    \
+    .task_core          = 0,    \
+    };
+    //esp_periph_config_t periph_cfg = {0};
+    //esp_periph_init(&periph_cfg);
+    esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+
+    //audio_board_sdcard_init(set);
 
     // Initialize SD Card peripheral
     periph_sdcard_cfg_t sdcard_cfg = {
         .root = "/sdcard",
-        .card_detect_pin = 34, //GPIO_NUM_34
+        .card_detect_pin = 39, //GPIO_NUM_34
     };
     esp_periph_handle_t sdcard_handle = periph_sdcard_init(&sdcard_cfg);
     // Start sdcard & button peripheral
-    //esp_periph_start(sdcard_handle);
+    esp_periph_start(set, sdcard_handle);
 
     // Wait until sdcard was mounted
     while (!periph_sdcard_is_mounted(sdcard_handle)) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
+    audio_board_handle_t board_handle = audio_board_init();
+    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
     ESP_LOGI(TAG, "[2.0] Create audio pipeline for playback");
     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
     pipeline = audio_pipeline_init(&pipeline_cfg);
@@ -467,9 +479,11 @@ static void audio_sdcard_task(void *para)
     audio_pipeline_set_listener(pipeline, evt);
 
     ESP_LOGI(TAG, "[3.2] Listening event from peripherals");
+    audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
     //audio_event_iface_set_listener(esp_periph_get_event_iface(), evt);
 
     ESP_LOGI(TAG, "[ 4 ] Listen for all pipeline events");
+    audio_pipeline_run(pipeline);
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
@@ -530,7 +544,7 @@ static void audio_sdcard_task(void *para)
     //esp_periph_destroy();
     vTaskDelete(NULL);
 }
-#endif
+//#endif
 
 /******************************************************************************
  * FunctionName : app_main
@@ -549,14 +563,14 @@ void app_main()
     esp_vfs_fat_sdmmc_unmount();
     ESP_LOGI(TAG, "[APP] Music File Count: %d", filecount);
 
-#if USE_ADF_TO_PLAY
+//#if USE_ADF_TO_PLAY
     gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
     gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
     gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
     gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
     gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
-    xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 5, NULL, 4, NULL);
-#endif
+    xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 10, NULL, 0, NULL);
+//#endif
 
     /* mp3 example */
     littlevgl_mp3();
