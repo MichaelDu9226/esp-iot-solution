@@ -32,10 +32,39 @@
 /**********************
  *      MACROS
  **********************/
+#define CONTROL_CURRENT -1
+#define CONTROL_NEXT -2
+#define CONTROL_PREV -3
+#define MAX_PLAY_FILE_NUM 20
+
+#define USE_ADF_TO_PLAY CONFIG_USE_ADF_PLAY
+
+//#if USE_ADF_TO_PLAY
+#include "audio_element.h"
+#include "audio_pipeline.h"
+#include "audio_event_iface.h"
+#include "audio_mem.h"
+#include "audio_common.h"
+#include "i2s_stream.h"
+#include "mp3_decoder.h"
+#include "fatfs_stream.h"
+#include "esp_peripherals.h"
+#include "periph_sdcard.h"
+#include "board.h"
+//#endif
+
+/**********************
+ *      MACROS
+ **********************/
 #define TAG "coffee_lvgl"
 #define LV_ANIM_RESOLUTION 1024
 #define LV_ANIM_RES_SHIFT 10
 
+// more files may be added and `MP3_FILE_COUNT` will reflect the actual count
+#define MP3_FILE_COUNT sizeof(mp3_file)/sizeof(char*)
+
+#define CURRENT 0
+#define NEXT    1
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -62,13 +91,71 @@ static lv_obj_t *precent_label[3] = {NULL};
  *  IMAGE DECLARE
  **********************/
 LV_IMG_DECLARE(coffee_bean);
-LV_IMG_DECLARE(coffee_cup);
-LV_IMG_DECLARE(coffee_flower);
+//LV_IMG_DECLARE(coffee_cup);
+//LV_IMG_DECLARE(coffee_flower);
 
 /* Image and txt resource */
 const void *btn_img[] = {SYMBOL_PREV, SYMBOL_PLAY, SYMBOL_NEXT, SYMBOL_PAUSE};
-const void *wp_img[] = {&coffee_bean, &coffee_cup, &coffee_flower};
+//const void *wp_img[] = {&coffee_bean, &coffee_cup, &coffee_flower};
+const void *wp_img[] = {&coffee_bean};
 const char *coffee_type[] = {"RISTRETTO", "ESPRESSO", "AMERICANO"};
+
+//#if USE_ADF_TO_PLAY
+static audio_pipeline_handle_t pipeline;
+static audio_element_handle_t fatfs_stream_reader, i2s_stream_writer, mp3_decoder;
+//#endif
+
+
+char current_mp3_name[32];
+
+static FILE *get_file(int next_file)
+{
+    static FILE *file;
+    static int file_index = 0;
+
+    if (next_file != CURRENT) {
+        if (file != NULL) {
+            fclose(file);
+            file = NULL;
+        }
+    }
+    // return a handle to the current file
+    if (file == NULL) {
+        file = fopen(current_mp3_name, "r");
+        if (!file) {
+            ESP_LOGE(TAG, "Error opening file");
+            return NULL;
+        }
+    }
+    return file;
+}
+
+static lv_res_t audio_control(lv_obj_t *obj)
+{
+#if USE_ADF_TO_PLAY
+    audio_element_state_t el_state = audio_element_get_state(i2s_stream_writer);
+    switch (el_state) {
+    case AEL_STATE_INIT:
+        //lv_img_set_src(img[1], img_src[3]);
+        audio_pipeline_run(pipeline);
+        break;
+    case AEL_STATE_RUNNING:
+        //lv_img_set_src(img[1], img_src[1]);
+        audio_pipeline_pause(pipeline);
+        break;
+    case AEL_STATE_PAUSED:
+        //lv_img_set_src(img[1], img_src[3]);
+        audio_pipeline_resume(pipeline);
+        break;
+    default:
+        break;
+    }
+#else
+    //play ? lv_img_set_src(img[1], img_src[1]) : lv_img_set_src(img[1], img_src[3]);
+    //play = !play;
+#endif
+    return LV_RES_OK;
+}
 
 static lv_res_t prebtn_action(lv_obj_t *btn)
 {
@@ -205,7 +292,7 @@ static void create_tab(lv_obj_t *parent, uint8_t wp_img_id, uint8_t coffee_type_
     lv_obj_t *preimg = lv_img_create(prebtn[id], NULL);
     lv_img_set_src(preimg, btn_img[0]);
     lv_obj_set_pos(prebtn[id], 15, 30);
-    lv_btn_set_action(prebtn[id], LV_BTN_ACTION_CLICK, prebtn_action);
+    lv_btn_set_action(prebtn[id], LV_BTN_ACTION_CLICK, audio_control);
     lv_style_copy(&btn_rel_style, lv_btn_get_style(prebtn[id], LV_BTN_STYLE_REL));
     lv_style_copy(&btn_pr_style, lv_btn_get_style(prebtn[id], LV_BTN_STYLE_PR));
     btn_rel_style.body.main_color = LV_COLOR_WHITE;
@@ -365,8 +452,8 @@ static void littlevgl_coffee(void)
     lv_tabview_set_anim_time(tabview, 0);
 
     create_tab(tab[0], 0, 0, 0); /* Create ristretto coffee selection tab page */
-    create_tab(tab[1], 1, 1, 1); /* Create espresso coffee selection tab page */
-    create_tab(tab[2], 2, 2, 2); /* Create americano coffee selection tab page */
+    //create_tab(tab[1], 1, 1, 1); /* Create espresso coffee selection tab page */
+    //create_tab(tab[2], 2, 2, 2); /* Create americano coffee selection tab page */
 }
 
 static void user_task(void *pvParameter)
@@ -376,13 +463,213 @@ static void user_task(void *pvParameter)
     }
 }
 
+//#if USE_ADF_TO_PLAY
+/*
+* Callback function to feed audio data stream from sdcard to mp3 decoder element
+*/
+static int my_sdcard_read_cb(audio_element_handle_t el, char *buf, int len, TickType_t wait_time, void *ctx)
+{
+    int read_len = fread(buf, 1, len, get_file(CONTROL_CURRENT));
+    if (read_len == 0) {
+        read_len = AEL_IO_DONE;
+    }
+    return read_len;
+}
+
+static void audio_sdcard_task(void *para)
+{
+    ESP_LOGI(TAG, "[ 1 ] Mount sdcard");
+    // Initialize peripherals management
+    esp_periph_config_t periph_cfg = {\
+    .task_stack         = 4096,   \
+    .task_prio          = 1,    \
+    .task_core          = 0,    \
+    };
+    //esp_periph_config_t periph_cfg = {0};
+    //esp_periph_init(&periph_cfg);
+    esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+// Initialize SD Card peripheral
+    audio_board_sdcard_init(set);
+
+    ESP_LOGI(TAG, "[ 2 ] Start codec chip");
+    audio_board_handle_t board_handle = audio_board_init();
+    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+
+    ESP_LOGI(TAG, "[3.0] Create audio pipeline for playback");
+    audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
+    pipeline = audio_pipeline_init(&pipeline_cfg);
+    mem_assert(pipeline);
+
+    ESP_LOGI(TAG, "[3.1] Create fatfs stream to read data from sdcard");
+    fatfs_stream_cfg_t fatfs_cfg = FATFS_STREAM_CFG_DEFAULT();
+    fatfs_cfg.type = AUDIO_STREAM_READER;
+    fatfs_stream_reader = fatfs_stream_init(&fatfs_cfg);
+
+    ESP_LOGI(TAG, "[3.2] Create i2s stream to write data to codec chip");
+    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
+    i2s_cfg.type = AUDIO_STREAM_WRITER;
+    i2s_stream_writer = i2s_stream_init(&i2s_cfg);
+
+    ESP_LOGI(TAG, "[3.3] Create mp3 decoder to decode mp3 file");
+    mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_cfg);
+
+    ESP_LOGI(TAG, "[3.4] Register all elements to audio pipeline");
+    audio_pipeline_register(pipeline, fatfs_stream_reader, "file");
+    audio_pipeline_register(pipeline, mp3_decoder, "mp3");
+    audio_pipeline_register(pipeline, i2s_stream_writer, "i2s");
+
+    ESP_LOGI(TAG, "[3.5] Link it together [sdcard]-->fatfs_stream-->mp3_decoder-->i2s_stream-->[codec_chip]");
+    audio_pipeline_link(pipeline, (const char *[]) {"file", "mp3", "i2s"}, 3);
+
+    ESP_LOGI(TAG, "[3.6] Set up  uri (file as fatfs_stream, mp3 as mp3 decoder, and default output is i2s)");
+    audio_element_set_uri(fatfs_stream_reader, "/sdcard/winxp.mp3");
+
+
+    ESP_LOGI(TAG, "[ 4 ] Set up  event listener");
+    audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+    audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
+
+    ESP_LOGI(TAG, "[4.1] Listening event from all elements of pipeline");
+    audio_pipeline_set_listener(pipeline, evt);
+
+    ESP_LOGI(TAG, "[4.2] Listening event from peripherals");
+    audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
+
+
+    ESP_LOGI(TAG, "[ 5 ] Start audio_pipeline");
+    //audio_pipeline_run(pipeline);
+    ESP_LOGI(TAG, "[APP] Free memory*****: %d bytes", esp_get_free_heap_size());
+/*
+    //audio_board_sdcard_init(set);
+
+    // Initialize SD Card peripheral
+    periph_sdcard_cfg_t sdcard_cfg = {
+        .root = "/sdcard",
+        .card_detect_pin = 39, //GPIO_NUM_34
+    };
+    esp_periph_handle_t sdcard_handle = periph_sdcard_init(&sdcard_cfg);
+    // Start sdcard & button peripheral
+    esp_periph_start(set, sdcard_handle);
+
+    // Wait until sdcard was mounted
+    while (!periph_sdcard_is_mounted(sdcard_handle)) {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+
+    strcpy(current_mp3_name, "/sdcard/start.mp3");
+
+    audio_board_handle_t board_handle = audio_board_init();
+    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+    ESP_LOGI(TAG, "[2.0] Create audio pipeline for playback");
+    audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
+    pipeline = audio_pipeline_init(&pipeline_cfg);
+    mem_assert(pipeline);
+
+    ESP_LOGI(TAG, "[2.1] Create i2s stream to write data to ESP32 internal DAC");
+    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
+    i2s_cfg.type = AUDIO_STREAM_WRITER;
+    i2s_cfg.i2s_config.sample_rate = 48000;
+    i2s_stream_writer = i2s_stream_init(&i2s_cfg);
+
+    ESP_LOGI(TAG, "[2.2] Create mp3 decoder to decode mp3 file");
+    mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_cfg);
+    audio_element_set_read_cb(mp3_decoder, my_sdcard_read_cb, NULL);
+
+    ESP_LOGI(TAG, "[2.3] Register all elements to audio pipeline");
+    audio_pipeline_register(pipeline, mp3_decoder, "mp3");
+    audio_pipeline_register(pipeline, i2s_stream_writer, "i2s");
+
+    ESP_LOGI(TAG, "[2.4] Link it together [my_sdcard_read_cb]-->mp3_decoder-->i2s_stream-->[codec_chip]");
+    audio_pipeline_link(pipeline, (const char *[]) {
+        "mp3", "i2s"
+    }, 2);
+
+    ESP_LOGI(TAG, "[ 3 ] Setup event listener");
+    audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+    audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
+
+    ESP_LOGI(TAG, "[3.1] Listening event from all elements of pipeline");
+    audio_pipeline_set_listener(pipeline, evt);
+
+    ESP_LOGI(TAG, "[3.2] Listening event from peripherals");
+    audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
+    //audio_event_iface_set_listener(esp_periph_get_event_iface(), evt);
+
+    ESP_LOGI(TAG, "[ 4 ] Listen for all pipeline events");
+
+    audio_pipeline_run(pipeline);
+    */
+    while (1) {
+        audio_event_iface_msg_t msg;
+        esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
+            continue;
+        }
+
+        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)mp3_decoder && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+            audio_element_info_t music_info = {0};
+            audio_element_getinfo(mp3_decoder, &music_info);
+
+            ESP_LOGI(TAG, "[ * ] Receive music info from mp3 decoder, sample_rates=%d, bits=%d, ch=%d",
+                     music_info.sample_rates, music_info.bits, music_info.channels);
+
+            audio_element_setinfo(i2s_stream_writer, &music_info);
+            i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
+            continue;
+        }
+
+        // Advance to the next song when previous finishes
+        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)i2s_stream_writer && msg.cmd == AEL_MSG_CMD_REPORT_STATUS) {
+            audio_element_state_t el_state = audio_element_get_state(i2s_stream_writer);
+            if (el_state == AEL_STATE_FINISHED) {
+                ESP_LOGI(TAG, "[ * ] Finished, advancing to the next song");
+                audio_pipeline_stop(pipeline);
+                audio_pipeline_wait_for_stop(pipeline);
+                //get_file(CONTROL_NEXT);
+                //audio_pipeline_run(pipeline);
+            }
+            continue;
+        }
+
+        /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
+        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)i2s_stream_writer && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (int)msg.data == AEL_STATUS_STATE_STOPPED) {
+            ESP_LOGW(TAG, "[ * ] Stop event received");
+            break;
+        }
+    }
+
+    ESP_LOGI(TAG, "[ 7 ] Stop audio_pipeline");
+    audio_pipeline_terminate(pipeline);
+
+    /* Terminal the pipeline before removing the listener */
+    audio_pipeline_remove_listener(pipeline);
+
+    /* Stop all periph before removing the listener */
+    //esp_periph_stop_all();
+    //audio_event_iface_remove_listener(esp_periph_get_event_iface(), evt);
+
+    /* Make sure audio_pipeline_remove_listener & audio_event_iface_remove_listener are called before destroying event_iface */
+    audio_event_iface_destroy(evt);
+
+    /* Release all resources */
+    audio_pipeline_deinit(pipeline);
+    audio_element_deinit(i2s_stream_writer);
+    audio_element_deinit(mp3_decoder);
+    //esp_periph_destroy();
+    vTaskDelete(NULL);
+}
+//#endif
+
 /******************************************************************************
  * FunctionName : app_main
  * Description  : entry of user application, init user function here
  * Parameters   : none
  * Returns      : none
 *******************************************************************************/
-extern "C" void app_main()
+void app_main()
 {
     /* Initialize LittlevGL GUI */
     lvgl_init();
@@ -397,6 +684,15 @@ extern "C" void app_main()
         NULL,        // Parameters
         1,           // Priority
         NULL);       // Task Handler
+
+//#if USE_ADF_TO_PLAY
+    gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
+    gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
+    gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
+    gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
+    //gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
+    xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 10, NULL, 0, NULL);
+//#endif
 
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());

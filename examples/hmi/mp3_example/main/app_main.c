@@ -104,44 +104,31 @@ void *img_src[] = {SYMBOL_PREV, SYMBOL_PLAY, SYMBOL_NEXT, SYMBOL_PAUSE};
 static audio_pipeline_handle_t pipeline;
 static audio_element_handle_t i2s_stream_writer, mp3_decoder;
 #endif
+// more files may be added and `MP3_FILE_COUNT` will reflect the actual count
+#define MP3_FILE_COUNT sizeof(mp3_file)/sizeof(char*)
+
+#define CURRENT 0
+#define NEXT    1
+char current_mp3_name[32];
 
 static FILE *get_file(int next_file)
 {
     static FILE *file;
-    static int file_index = 1;
+    static int file_index = 0;
 
-    if (next_file != CONTROL_CURRENT) {
-        if (next_file == CONTROL_NEXT) {
-            // advance to the next file
-            if (++file_index > filecount - 1) {
-                file_index = 0;
-            }
-        } else if (next_file == CONTROL_PREV) {
-            // advance to the prev file
-            if (--file_index < 0) {
-                file_index = filecount - 1;
-            }
-        } else if (next_file >= 0 && next_file < filecount) {
-            file_index = next_file;
-        }
-#if USE_ADF_TO_PLAY
+    if (next_file != CURRENT) {
         if (file != NULL) {
             fclose(file);
             file = NULL;
         }
-#endif
-        ESP_LOGI(TAG, "[ * ] File index %d", file_index);
     }
     // return a handle to the current file
     if (file == NULL) {
-        lv_label_set_text(current_music, strstr(directory[file_index], "d/") + 2);
-#if USE_ADF_TO_PLAY
-        file = fopen(directory[file_index], "r");
+        file = fopen(current_mp3_name, "r");
         if (!file) {
             ESP_LOGE(TAG, "Error opening file");
             return NULL;
         }
-#endif
     }
     return file;
 }
@@ -444,7 +431,7 @@ static void audio_sdcard_task(void *para)
     while (!periph_sdcard_is_mounted(sdcard_handle)) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
-
+    strcpy(current_mp3_name, "/sdcard/start.mp3");
     audio_board_handle_t board_handle = audio_board_init();
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
     ESP_LOGI(TAG, "[2.0] Create audio pipeline for playback");
@@ -483,7 +470,7 @@ static void audio_sdcard_task(void *para)
     //audio_event_iface_set_listener(esp_periph_get_event_iface(), evt);
 
     ESP_LOGI(TAG, "[ 4 ] Listen for all pipeline events");
-    //audio_pipeline_run(pipeline);
+    audio_pipeline_run(pipeline);
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
