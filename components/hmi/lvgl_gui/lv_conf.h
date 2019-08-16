@@ -91,7 +91,7 @@
  /* Place VDB to a specific address (e.g. in external RAM)
   * 0: allocate automatically into RAM
   * LV_VDB_ADR_INV: to replace it later with `lv_vdb_set_adr()`*/
-#define LV_VDB_ADR          0
+#define LV_VDB_ADR          LV_VDB_ADR_INV//0
 
 /* Use two Virtual Display buffers (VDB) to parallelize rendering and flushing
  * The flushing should use DMA to write the frame buffer in the background */

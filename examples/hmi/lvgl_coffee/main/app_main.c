@@ -25,6 +25,7 @@
 
 /* LVGL includes */
 #include "iot_lvgl.h"
+#include "thb_esp.h"
 
 /* ESP32 includes */
 #include "esp_log.h"
@@ -97,15 +98,15 @@ LV_IMG_DECLARE(coffee_bean);
 /* Image and txt resource */
 const void *btn_img[] = {SYMBOL_PREV, SYMBOL_PLAY, SYMBOL_NEXT, SYMBOL_PAUSE};
 //const void *wp_img[] = {&coffee_bean, &coffee_cup, &coffee_flower};
-const void *wp_img[] = {&coffee_bean};
+//const void *wp_img[] = {&coffee_bean};
 const char *coffee_type[] = {"RISTRETTO", "ESPRESSO", "AMERICANO"};
 
 //#if USE_ADF_TO_PLAY
-static audio_pipeline_handle_t pipeline;
-static audio_element_handle_t fatfs_stream_reader, i2s_stream_writer, mp3_decoder;
+//static audio_pipeline_handle_t pipeline;
+//static audio_element_handle_t fatfs_stream_reader, i2s_stream_writer, mp3_decoder;
 //#endif
 
-
+/*
 char current_mp3_name[32];
 
 static FILE *get_file(int next_file)
@@ -156,13 +157,16 @@ static lv_res_t audio_control(lv_obj_t *obj)
 #endif
     return LV_RES_OK;
 }
-
+*/
 static lv_res_t prebtn_action(lv_obj_t *btn)
 {
     if (--tab_id < 0) {
         tab_id = 2;
     }
-    lv_tabview_set_tab_act(tabview, tab_id, true);
+    //lv_tabview_set_tab_act(tabview, tab_id, true);
+    //play_mp3("/sdcard/mp3/004.mp3");
+    //voice_control_start();
+    ESP_LOGI(TAG, "prebtn_action");
     return LV_RES_OK;
 }
 
@@ -171,7 +175,9 @@ static lv_res_t nextbtn_action(lv_obj_t *btn)
     if (++tab_id > 2) {
         tab_id = 0;
     }
-    lv_tabview_set_tab_act(tabview, tab_id, true);
+    //lv_tabview_set_tab_act(tabview, tab_id, true);
+    ESP_LOGI(TAG, "nextbtn_action");
+    //play_mp3("/sdcard/mp3/003.mp3");
     return LV_RES_OK;
 }
 
@@ -281,8 +287,8 @@ static void create_tab(lv_obj_t *parent, uint8_t wp_img_id, uint8_t coffee_type_
     lv_page_set_scrl_fit(parent, false, false);       /* It must not be automatically sized to allow all children to participate. */
     lv_page_set_scrl_height(parent, LV_VER_RES + 20); /* Set height of the scrollable part of a page */
 
-    lv_obj_t *wp = lv_img_create(parent, NULL); /* create wallpaper */
-    lv_img_set_src(wp, wp_img[wp_img_id]);      /* set wallpaper image */
+    //lv_obj_t *wp = lv_img_create(parent, NULL); /* create wallpaper */
+    //lv_img_set_src(wp, wp_img[wp_img_id]);      /* set wallpaper image */
 
     static lv_style_t btn_rel_style;
     static lv_style_t btn_pr_style;
@@ -292,7 +298,7 @@ static void create_tab(lv_obj_t *parent, uint8_t wp_img_id, uint8_t coffee_type_
     lv_obj_t *preimg = lv_img_create(prebtn[id], NULL);
     lv_img_set_src(preimg, btn_img[0]);
     lv_obj_set_pos(prebtn[id], 15, 30);
-    lv_btn_set_action(prebtn[id], LV_BTN_ACTION_CLICK, audio_control);
+    lv_btn_set_action(prebtn[id], LV_BTN_ACTION_CLICK, prebtn_action);
     lv_style_copy(&btn_rel_style, lv_btn_get_style(prebtn[id], LV_BTN_STYLE_REL));
     lv_style_copy(&btn_pr_style, lv_btn_get_style(prebtn[id], LV_BTN_STYLE_PR));
     btn_rel_style.body.main_color = LV_COLOR_WHITE;
@@ -467,6 +473,7 @@ static void user_task(void *pvParameter)
 /*
 * Callback function to feed audio data stream from sdcard to mp3 decoder element
 */
+/*
 static int my_sdcard_read_cb(audio_element_handle_t el, char *buf, int len, TickType_t wait_time, void *ctx)
 {
     int read_len = fread(buf, 1, len, get_file(CONTROL_CURRENT));
@@ -540,7 +547,7 @@ static void audio_sdcard_task(void *para)
     ESP_LOGI(TAG, "[ 5 ] Start audio_pipeline");
     //audio_pipeline_run(pipeline);
     ESP_LOGI(TAG, "[APP] Free memory*****: %d bytes", esp_get_free_heap_size());
-/*
+
     //audio_board_sdcard_init(set);
 
     // Initialize SD Card peripheral
@@ -600,7 +607,7 @@ static void audio_sdcard_task(void *para)
     ESP_LOGI(TAG, "[ 4 ] Listen for all pipeline events");
 
     audio_pipeline_run(pipeline);
-    */
+    
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
@@ -634,7 +641,7 @@ static void audio_sdcard_task(void *para)
             continue;
         }
 
-        /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
+
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)i2s_stream_writer && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (int)msg.data == AEL_STATUS_STATE_STOPPED) {
             ESP_LOGW(TAG, "[ * ] Stop event received");
             break;
@@ -644,23 +651,24 @@ static void audio_sdcard_task(void *para)
     ESP_LOGI(TAG, "[ 7 ] Stop audio_pipeline");
     audio_pipeline_terminate(pipeline);
 
-    /* Terminal the pipeline before removing the listener */
+
     audio_pipeline_remove_listener(pipeline);
 
-    /* Stop all periph before removing the listener */
+
     //esp_periph_stop_all();
     //audio_event_iface_remove_listener(esp_periph_get_event_iface(), evt);
 
-    /* Make sure audio_pipeline_remove_listener & audio_event_iface_remove_listener are called before destroying event_iface */
+
     audio_event_iface_destroy(evt);
 
-    /* Release all resources */
+
     audio_pipeline_deinit(pipeline);
     audio_element_deinit(i2s_stream_writer);
     audio_element_deinit(mp3_decoder);
     //esp_periph_destroy();
     vTaskDelete(NULL);
 }
+*/
 //#endif
 
 /******************************************************************************
@@ -671,12 +679,18 @@ static void audio_sdcard_task(void *para)
 *******************************************************************************/
 void app_main()
 {
+    gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
+    gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
+    gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
+    gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
+    audio_start();
+
     /* Initialize LittlevGL GUI */
     lvgl_init();
 
     /* coffee demo */
     littlevgl_coffee();
-
+/*
     xTaskCreate(
         user_task,   // Task Function
         "user_task", // Task Name
@@ -684,14 +698,15 @@ void app_main()
         NULL,        // Parameters
         1,           // Priority
         NULL);       // Task Handler
-
+*/
 //#if USE_ADF_TO_PLAY
-    gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
-    gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
-    gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
-    gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
+    //gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY); // CMD, needed in 4- and 1- line modes
+    //gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);  // D0, needed in 4- and 1- line modes
+    //gpio_set_pull_mode((gpio_num_t)4, GPIO_PULLUP_ONLY);  // D1, needed in 4-line mode only
+    //gpio_set_pull_mode((gpio_num_t)12, GPIO_PULLUP_ONLY); // D2, needed in 4-line mode only
     //gpio_set_pull_mode((gpio_num_t)13, GPIO_PULLUP_ONLY); // D3, needed in 4- and 1- line modes
-    xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 10, NULL, 0, NULL);
+    //xTaskCreate(audio_sdcard_task, "audio_sdcard_task", 1024 * 10, NULL, 0, NULL);
+    //audio_start();
 //#endif
 
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
