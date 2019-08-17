@@ -64,7 +64,7 @@ void audio_task(void *pv)
     esp_periph_config_t periph_cfg = {\
     .task_stack         = 4096,   \
     .task_prio          = 5,    \
-    .task_core          = 0,    \
+    .task_core          = 1,    \
 };
     //DEFAULT_ESP_PHERIPH_SET_CONFIG();
     esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
@@ -101,7 +101,7 @@ void audio_task(void *pv)
         //.on_begin = google_sr_begin,
     };
     sr = baidu_sr_init(&sr_config);
- /*   
+    
     ESP_LOGI(TAG, "Free heap4: %u", xPortGetFreeHeapSize());
     audio_player_config_t player_config = {
         .api_key = "AIzaSyAA_GqSv9wJfCcGDC5Bdn9wJ6iNAZWrbaY",//CONFIG_GOOGLE_API_KEY,
@@ -109,7 +109,7 @@ void audio_task(void *pv)
         .record_sample_rates = 16000,//EXAMPLE_RECORD_PLAYBACK_SAMPLE_RATE,
     };
     player = audio_player_init(&player_config);
-    */
+    
     ESP_LOGI(TAG, "Free heap5: %u", xPortGetFreeHeapSize());
     ESP_LOGI(TAG, "[ 4 ] Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
@@ -122,7 +122,7 @@ void audio_task(void *pv)
     ESP_LOGI(TAG, "[4.2] Listening event from peripherals");
     audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
 
-    //audio_player_start(player);
+    audio_player_start(player);
     //es8388_pa_power(1);
     ESP_LOGI(TAG, "[ 5 ] Listen for all pipeline events");
     while (1) {

@@ -98,7 +98,7 @@ LV_IMG_DECLARE(coffee_bean);
 /* Image and txt resource */
 const void *btn_img[] = {SYMBOL_PREV, SYMBOL_PLAY, SYMBOL_NEXT, SYMBOL_PAUSE};
 //const void *wp_img[] = {&coffee_bean, &coffee_cup, &coffee_flower};
-//const void *wp_img[] = {&coffee_bean};
+const void *wp_img[] = {&coffee_bean};
 const char *coffee_type[] = {"RISTRETTO", "ESPRESSO", "AMERICANO"};
 
 //#if USE_ADF_TO_PLAY
@@ -164,7 +164,7 @@ static lv_res_t prebtn_action(lv_obj_t *btn)
         tab_id = 2;
     }
     //lv_tabview_set_tab_act(tabview, tab_id, true);
-    //play_mp3("/sdcard/mp3/004.mp3");
+    play_mp3("/sdcard/mp3/004.mp3");
     //voice_control_start();
     ESP_LOGI(TAG, "prebtn_action");
     return LV_RES_OK;
@@ -177,7 +177,7 @@ static lv_res_t nextbtn_action(lv_obj_t *btn)
     }
     //lv_tabview_set_tab_act(tabview, tab_id, true);
     ESP_LOGI(TAG, "nextbtn_action");
-    //play_mp3("/sdcard/mp3/003.mp3");
+    play_mp3("/sdcard/mp3/003.mp3");
     return LV_RES_OK;
 }
 
@@ -287,8 +287,8 @@ static void create_tab(lv_obj_t *parent, uint8_t wp_img_id, uint8_t coffee_type_
     lv_page_set_scrl_fit(parent, false, false);       /* It must not be automatically sized to allow all children to participate. */
     lv_page_set_scrl_height(parent, LV_VER_RES + 20); /* Set height of the scrollable part of a page */
 
-    //lv_obj_t *wp = lv_img_create(parent, NULL); /* create wallpaper */
-    //lv_img_set_src(wp, wp_img[wp_img_id]);      /* set wallpaper image */
+    lv_obj_t *wp = lv_img_create(parent, NULL); /* create wallpaper */
+    lv_img_set_src(wp, wp_img[wp_img_id]);      /* set wallpaper image */
 
     static lv_style_t btn_rel_style;
     static lv_style_t btn_pr_style;

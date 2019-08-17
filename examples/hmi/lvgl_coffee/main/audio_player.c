@@ -170,7 +170,7 @@ audio_player_handle_t audio_player_init(audio_player_config_t *config)
     esp_periph_config_t periph_cfg = {\
     .task_stack         = 4096,   \
     .task_prio          = 5,    \
-    .task_core          = 0,    \
+    .task_core          = 1,    \
 };
     //DEFAULT_ESP_PHERIPH_SET_CONFIG();
     esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);

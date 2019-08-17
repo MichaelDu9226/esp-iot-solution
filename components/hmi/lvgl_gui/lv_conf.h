@@ -18,7 +18,7 @@
  * to store the graphical objects and other data */
 #define LV_MEM_CUSTOM      0                /*1: use custom malloc/free, 0: use the built-in lv_mem_alloc/lv_mem_free*/
 #if LV_MEM_CUSTOM == 0
-#  define LV_MEM_SIZE    (64U * 1024U)        /*Size memory used by `lv_mem_alloc` in bytes (>= 2kB)*/
+#  define LV_MEM_SIZE    (15U * 1024U)        /*Size memory used by `lv_mem_alloc` in bytes (>= 2kB)*/
 #  define LV_MEM_ATTR                         /*Complier prefix for big array declaration*/
 #  define LV_MEM_ADR          0               /*Set an address for memory pool instead of allocation it as an array. Can be in external SRAM too.*/
 #  define LV_MEM_AUTO_DEFRAG  1               /*Automatically defrag on free*/
@@ -79,7 +79,7 @@
  * Setting it to 0 will disable VDB and `disp_drv.disp_fill` and `disp_drv.disp_map` functions
  * will be called to draw to the frame buffer directly*/
 #if defined(CONFIG_LVGL_LCD_DRIVER_FRAMEBUFFER_MODE)
-#define LV_VDB_SIZE         ((LV_VER_RES * LV_HOR_RES) / 10)  /*Size of VDB in pixel count (1/10 screen size is good for first)*/
+#define LV_VDB_SIZE         ((LV_VER_RES * LV_HOR_RES) / 15)  /*Size of VDB in pixel count (1/10 screen size is good for first)*/
 #elif defined(CONFIG_LVGL_LCD_DRIVER_API_MODE)
 #define LV_VDB_SIZE         0  /*Size of VDB in pixel count (1/10 screen size is good for first)*/
 #endif
@@ -177,7 +177,7 @@
 /*================
  *  THEME USAGE
  *================*/
-#define LV_THEME_LIVE_UPDATE    1       /*1: Allow theme switching at run time. Uses 8..10 kB of RAM*/
+#define LV_THEME_LIVE_UPDATE    0       /*1: Allow theme switching at run time. Uses 8..10 kB of RAM*/
 
 #define USE_LV_THEME_TEMPL      0       /*Just for test*/
 #define USE_LV_THEME_DEFAULT    1       /*Built mainly from the built-in styles. Consumes very few RAM*/
@@ -332,7 +332,7 @@
 #define USE_LV_CALENDAR 1
 
 /*Preload (dependencies: lv_arc)*/
-#define USE_LV_PRELOAD      1
+#define USE_LV_PRELOAD      0
 #if USE_LV_PRELOAD != 0
 #  define LV_PRELOAD_DEF_ARC_LENGTH   60      /*[deg]*/
 #  define LV_PRELOAD_DEF_SPIN_TIME    1000    /*[ms]*/
