@@ -165,6 +165,26 @@ DRAM_ATTR static const lcd_init_cmd_t ili_init_cmds[]={
     {0, {0}, 0xff},
 };
 
+DRAM_ATTR static const lcd_init_cmd_t ili9488_init_cmds[]={
+    {0xF7, {0xA9, 0x51, 0x2C, 0x82}, 4},
+    {0xC0, {0x11, 0x09}, 2},
+    {0xC1, {0x41}, 1},
+    {0xC5, {0x00, 0x0A, 0X80}, 3}, 
+    {0xB1, {0xB0, 0x11}, 2},
+    {0xB4, {0x02}, 1},
+    {0xB6, {0x02, 0x22}, 2},
+    {0xB7, {0xC6}, 1},
+    {0xBE, {0x00, 0x04}, 2},
+    {0xE9, {0x00}, 1},
+    {0x36, {0x08}, 1},
+    {0x3A, {0x66}, 1},
+    {0xE0, {0x00, 0x07, 0x10, 0x09, 0x17, 0x0B, 0x41, 0X89, 0x4B, 0x0A, 0x0C, 0x0E, 0x18, 0x1B, 0x0F}, 15},
+    {0XE1, {0x00, 0x17, 0x1A, 0x04, 0x0E, 0x06, 0x2F, 0x45, 0x43, 0x02, 0x0A, 0x09, 0x32, 0x36, 0x0F}, 15},
+    {0x11, {0}, 0x80},
+    {0x29, {0}, 0x80},
+    {0, {0}, 0xff},
+};
+
 DRAM_ATTR static const lcd_init_cmd_t st7789_init_cmds[] = {
     {0xC0, {0x00}, 1},           //LCMCTRL: LCM Control [2C] //sumpremely related to 0x36, MADCTL
     {0xC2, {0x01, 0xFF}, 2},     //VDVVRHEN: VDV and VRH Command Enable [01 FF]
@@ -700,9 +720,10 @@ uint32_t lcd_init(lcd_conf_t* lcd_conf, spi_device_handle_t *spi_wr_dev, lcd_dc_
     
     //lcd_init_cmds = st7735R_init_cmds;
 	//lcd_init_cmds = st7735R_init_cmds;
-	lcd_init_cmds = ili_init_cmds;
+	//lcd_init_cmds = ili_init_cmds;
+    //lcd_init_cmds = ili9488_init_cmds;
 	//lcd_init_cmds = st7735R_init_cmds;
-    lcd_init_cmds = st7796s_init_cmds;
+    //lcd_init_cmds = st7796s_init_cmds;
     assert(lcd_init_cmds != NULL);
     //Send all the commands
     while (lcd_init_cmds[cmd].databytes!=0xff) {
