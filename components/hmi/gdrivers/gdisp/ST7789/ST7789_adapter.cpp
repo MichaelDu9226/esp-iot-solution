@@ -229,6 +229,23 @@ void ex_disp_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const lv_color_
 
 lv_disp_drv_t lvgl_lcd_display_init()
 {
+#if 1
+    lcd_conf_t lcd_pins = {
+        .lcd_model    = LCD_MOD_AUTO_DET,
+        .pin_num_miso = GPIO_NUM_34,
+        .pin_num_mosi = GPIO_NUM_32,
+        .pin_num_clk  = GPIO_NUM_33,
+        .pin_num_cs   = GPIO_NUM_19,
+        .pin_num_dc   = GPIO_NUM_27,
+        .pin_num_rst  = -1,
+        .pin_num_bckl = 22,
+        .clk_freq     = 2 * 1000 * 1000,//Do Not over 2M Hz
+        .rst_active_level = 0,
+        .bckl_active_level = 1,
+        .spi_host = HSPI_HOST,
+        .init_spi_bus = true,
+    };
+#else
     /*Initialize LCD*/
     lcd_conf_t lcd_pins = {
         .lcd_model = LCD_MOD_AUTO_DET,
@@ -237,7 +254,7 @@ lv_disp_drv_t lvgl_lcd_display_init()
         .pin_num_clk = CONFIG_LVGL_LCD_CLK_GPIO,
         .pin_num_cs = CONFIG_LVGL_LCD_CS_GPIO,
         .pin_num_dc = CONFIG_LVGL_LCD_DC_GPIO,
-        .pin_num_rst = CONFIG_LVGL_LCD_RESET_GPIO,
+        .pin_num_rst = -1,
         .pin_num_bckl = CONFIG_LVGL_LCD_BL_GPIO,
         .clk_freq = CONFIG_LVGL_LCD_SPI_CLOCK,
         .rst_active_level = 0,
@@ -245,6 +262,7 @@ lv_disp_drv_t lvgl_lcd_display_init()
         .spi_host = (spi_host_device_t)CONFIG_LVGL_LCD_SPI_NUM,
         .init_spi_bus = true,
     };
+#endif
 
     if (lcd_obj == NULL) {
         lcd_obj = new CEspLcdAdapter(&lcd_pins, LV_VER_RES, LV_HOR_RES);

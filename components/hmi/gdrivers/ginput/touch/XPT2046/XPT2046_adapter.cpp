@@ -30,6 +30,9 @@
 /* uGFX Config Include */
 #include "sdkconfig.h"
 
+#include "esp_log.h"
+
+#define TAG "XPT2046_adapter"
 static CXpt2046 *xpt = NULL;
 
 class CTouchAdapter : public CXpt2046
@@ -87,6 +90,7 @@ static bool ex_tp_read(lv_indev_data_t *data)
     data->point.x = x;
     data->point.y = y;
     if (xpt->is_pressed()) {
+        //ESP_LOGI(TAG, "111");
         position pos = xpt->get_raw_position();
         data->point.x = pos.x;
         data->point.y = pos.y;
@@ -121,6 +125,19 @@ static bool ex_tp_read(lv_indev_data_t *data)
 /* Input device interface，Initialize your touchpad */
 lv_indev_drv_t lvgl_indev_init()
 {
+#if 1
+    xpt_conf_t xpt_conf = {
+        .pin_num_cs = 13,
+        .pin_num_irq = 17,
+        .clk_freq = 1 * 1000 * 1000,
+        .spi_host = HSPI_HOST,
+        .pin_num_miso = GPIO_NUM_34,        
+        .pin_num_mosi = GPIO_NUM_32,        
+        .pin_num_clk = GPIO_NUM_33,         
+        .dma_chan = 1,
+        .init_spi_bus = false,
+    };
+#else
     xpt_conf_t xpt_conf = {
         .pin_num_cs = CONFIG_LVGL_TOUCH_CS_GPIO,   /*!<SPI Chip Select Pin*/
         .pin_num_irq = CONFIG_LVGL_TOUCH_IRQ_GPIO, /*!< Touch screen IRQ pin */
@@ -132,7 +149,7 @@ lv_indev_drv_t lvgl_indev_init()
         .dma_chan = 1,
         .init_spi_bus = false,                     /*!< Whether to initialize SPI bus */
     };
-
+#endif
     if (xpt == NULL) {
         xpt = new CTouchAdapter(&xpt_conf, 0);
     }
