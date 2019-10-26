@@ -747,6 +747,7 @@ uint32_t lcd_init(lcd_conf_t* lcd_conf, spi_device_handle_t *spi_wr_dev, lcd_dc_
     //lcd_init_cmds = st7735R_init_cmds;
 	//lcd_init_cmds = st7735R_init_cmds;
 	//lcd_init_cmds = ili_init_cmds;
+    lcd_init_cmds = ili9344_init_cmds_01;
     //lcd_init_cmds = ili9488_init_cmds;
 	//lcd_init_cmds = st7735R_init_cmds;
     //lcd_init_cmds = st7796s_init_cmds;

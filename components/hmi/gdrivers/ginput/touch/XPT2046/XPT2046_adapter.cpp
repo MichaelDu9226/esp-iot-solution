@@ -125,10 +125,10 @@ static bool ex_tp_read(lv_indev_data_t *data)
 /* Input device interface，Initialize your touchpad */
 lv_indev_drv_t lvgl_indev_init()
 {
-#if 1
+#if 0
     xpt_conf_t xpt_conf = {
         .pin_num_cs = 13,
-        .pin_num_irq = 17,
+        .pin_num_irq = 22,
         .clk_freq = 1 * 1000 * 1000,
         .spi_host = HSPI_HOST,
         .pin_num_miso = GPIO_NUM_34,        

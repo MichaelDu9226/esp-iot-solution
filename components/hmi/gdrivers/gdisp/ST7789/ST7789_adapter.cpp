@@ -229,7 +229,7 @@ void ex_disp_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const lv_color_
 
 lv_disp_drv_t lvgl_lcd_display_init()
 {
-#if 1
+#if 0
     lcd_conf_t lcd_pins = {
         .lcd_model    = LCD_MOD_AUTO_DET,
         .pin_num_miso = GPIO_NUM_34,
@@ -239,7 +239,7 @@ lv_disp_drv_t lvgl_lcd_display_init()
         .pin_num_dc   = GPIO_NUM_27,
         .pin_num_rst  = -1,
         .pin_num_bckl = 22,
-        .clk_freq     = 2 * 1000 * 1000,//Do Not over 2M Hz
+        .clk_freq     = 40 * 1000 * 1000,//Do Not over 2M Hz
         .rst_active_level = 0,
         .bckl_active_level = 1,
         .spi_host = HSPI_HOST,
@@ -256,7 +256,7 @@ lv_disp_drv_t lvgl_lcd_display_init()
         .pin_num_dc = CONFIG_LVGL_LCD_DC_GPIO,
         .pin_num_rst = -1,
         .pin_num_bckl = CONFIG_LVGL_LCD_BL_GPIO,
-        .clk_freq = CONFIG_LVGL_LCD_SPI_CLOCK,
+        .clk_freq = 40 * 1000 * 1000,//CONFIG_LVGL_LCD_SPI_CLOCK,
         .rst_active_level = 0,
         .bckl_active_level = CONFIG_LVGL_BCKL_ACTIVE_LEVEL,
         .spi_host = (spi_host_device_t)CONFIG_LVGL_LCD_SPI_NUM,

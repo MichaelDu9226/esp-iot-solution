@@ -41,7 +41,8 @@ void lvgl_init()
 {
     uint32_t vs =  ((LV_VDB_SIZE * LV_VDB_PX_BPP) >> 3) + (((LV_VDB_SIZE * LV_VDB_PX_BPP) & 0x7) ? 1 : 0);
     printf("VDB size: %d\n", vs);
-    void * vb = malloc(vs);            /*Replace with your custom malloc*/
+    //void * vb = malloc(vs);            /*Replace with your custom malloc*/
+    void * vb = heap_caps_malloc(vs, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);            /*Replace with your custom malloc*/
     lv_vdb_set_adr(vb, NULL);
 
     /* LittlevGL work fine only when CONFIG_FREERTOS_HZ is 1000HZ */
