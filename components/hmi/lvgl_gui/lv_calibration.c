@@ -340,9 +340,9 @@ bool lvgl_calibrate_mouse(lv_indev_drv_t indev_drv, bool recalibrate)
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK(nvs_flash_erase());
+    //ESP_ERROR_CHECK(nvs_flash_erase());
     //err = nvs_flash_init();
-    //ESP_ERROR_CHECK( err );
+    ESP_ERROR_CHECK( err );
     vTaskDelay(CALIBRATION_POLL_PERIOD / portTICK_PERIOD_MS);   //Wait until nvs is stable， otherwise will cause exception
 
     if (!recalibrate && touch_load_calibration(&caldata)) {
